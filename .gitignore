@@ -1,5 +1,4 @@
 .env
-
 venv/
-
 __pycache__
+api/modelo_fine_tuned

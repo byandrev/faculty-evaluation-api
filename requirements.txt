@@ -3,3 +3,4 @@ pysentimiento
 torch
 ollama
 slowapi
+python-dotenv>=1.0.0

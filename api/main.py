@@ -14,39 +14,9 @@ from slowapi.util import get_remote_address
 
 from api.models.comment import Comment, CommentList
 from api.nlp import danger_analyzer, hate_analyzer, sentiment_analyzer
+from api.settings import settings
 
-# Rate limiter configuration
 limiter = Limiter(key_func=get_remote_address)
-
-SUMMARIZE_PROMPT = """Actúa como un analista institucional en evaluación docente universitaria, con experiencia en análisis de retroalimentación estudiantil y detección de riesgos académicos y conductuales.
-
-Objetivo del resumen (OBLIGATORIO)
-Generar un resumen ejecutivo narrativo, corto y claro, en lenguaje institucional, que describa: la percepción general del docente, sus principales áreas de mejora, y la existencia de comentarios de alerta que requieren atención inmediata, si los hay.
-
-Este resumen debe poder leerse como una sola conclusión gerencial.
-
-🚨 Regla crítica de seguridad (NO NEGOCIABLE)
-Si se detecta al menos un comentario relacionado con: acoso sexual, conducta sexual inapropiada, intimidación, violencia, abuso de poder,
-
-DEBES: mencionarlo explícitamente en el resumen, indicar que requiere atención institucional inmediata, sin citar ni describir el contenido sensible.
-
-✍️ Formato de salida esperado
-
-Redacta un solo párrafo siguiendo estrictamente esta estructura lógica, SOLO DEVUELVE UN PARRAFO :
-
-"El docente presenta comentarios mayormente [positivos / mixtos / negativos] por parte de los estudiantes, destacándose principalmente en [fortalezas generales]. No obstante, se identifican algunas áreas de mejora relacionadas con [áreas principales de mejora]. Adicionalmente, se detectaron comentarios de alerta relacionados con [tipo de alerta], los cuales deben ser tratados de manera inmediata."
-
-📌 Reglas de redacción
-
-- Usa lenguaje institucional, objetivo y profesional.
-- No incluyas citas textuales.
-- No hagas juicios personales ni sancionatorios.
-- No menciones cantidades exactas de comentarios sensibles.
-- Si NO existen alertas, el resumen debe cerrar con: "No se identificaron comentarios de alerta que requieran atención inmediata."
-
-Lista de comentarios separados por coma:
-
-{}"""
 
 app = FastAPI()
 
@@ -175,7 +145,7 @@ async def summarize_comments(request: Request, comment_list: CommentList):
         raise HTTPException(status_code=400, detail="No comments provided")
 
     comments_text = ", ".join(comment_list.comments)
-    prompt = SUMMARIZE_PROMPT.format(comments_text)
+    prompt = settings.summarize_prompt.format(comments_text)
 
     try:
         response = ollama.chat(

@@ -5,11 +5,42 @@ Main API module defining the FastAPI application and its endpoints.
 import csv
 from io import StringIO
 
+import ollama
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.models.comment import Comment
+from api.models.comment import Comment, CommentList
 from api.nlp import danger_analyzer, hate_analyzer, sentiment_analyzer
+
+SUMMARIZE_PROMPT = """Actúa como un analista institucional en evaluación docente universitaria, con experiencia en análisis de retroalimentación estudiantil y detección de riesgos académicos y conductuales.
+
+Objetivo del resumen (OBLIGATORIO)
+Generar un resumen ejecutivo narrativo, corto y claro, en lenguaje institucional, que describa: la percepción general del docente, sus principales áreas de mejora, y la existencia de comentarios de alerta que requieren atención inmediata, si los hay.
+
+Este resumen debe poder leerse como una sola conclusión gerencial.
+
+🚨 Regla crítica de seguridad (NO NEGOCIABLE)
+Si se detecta al menos un comentario relacionado con: acoso sexual, conducta sexual inapropiada, intimidación, violencia, abuso de poder,
+
+DEBES: mencionarlo explícitamente en el resumen, indicar que requiere atención institucional inmediata, sin citar ni describir el contenido sensible.
+
+✍️ Formato de salida esperado
+
+Redacta un solo párrafo siguiendo estrictamente esta estructura lógica, SOLO DEVUELVE UN PARRAFO :
+
+"El docente presenta comentarios mayormente [positivos / mixtos / negativos] por parte de los estudiantes, destacándose principalmente en [fortalezas generales]. No obstante, se identifican algunas áreas de mejora relacionadas con [áreas principales de mejora]. Adicionalmente, se detectaron comentarios de alerta relacionados con [tipo de alerta], los cuales deben ser tratados de manera inmediata."
+
+📌 Reglas de redacción
+
+- Usa lenguaje institucional, objetivo y profesional.
+- No incluyas citas textuales.
+- No hagas juicios personales ni sancionatorios.
+- No menciones cantidades exactas de comentarios sensibles.
+- Si NO existen alertas, el resumen debe cerrar con: "No se identificaron comentarios de alerta que requieran atención inmediata."
+
+Lista de comentarios separados por coma:
+
+{}"""
 
 app = FastAPI()
 
@@ -115,3 +146,49 @@ async def analyze_csv(file: UploadFile = File(...)):
         "results": results,
         "status": "CSV analyzed successfully",
     }
+
+
+@app.post("/summarize/")
+async def summarize_comments(comment_list: CommentList):
+    """
+    Endpoint to generate an executive summary of comments using Gemma3 via Ollama.
+
+    Receives a list of comments and returns an institutional summary analyzing
+    the overall perception, areas for improvement, and any alert comments
+    requiring immediate attention.
+    """
+
+    if not comment_list.comments:
+        raise HTTPException(status_code=400, detail="No comments provided")
+
+    comments_text = ", ".join(comment_list.comments)
+    prompt = SUMMARIZE_PROMPT.format(comments_text)
+
+    try:
+        response = ollama.chat(
+            model="gemma3",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+        )
+
+        summary = response["message"]["content"]
+
+        return {
+            "summary": summary,
+            "total_comments": len(comment_list.comments),
+            "status": "Summary generated successfully",
+        }
+
+    except ollama.ResponseError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Ollama service error: {str(e)}. Make sure Ollama is running and gemma3 model is available.",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error generating summary: {str(e)}"
+        )

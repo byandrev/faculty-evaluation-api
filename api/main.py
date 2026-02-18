@@ -149,7 +149,7 @@ async def summarize_comments(request: Request, comment_list: CommentList):
 
     try:
         response = ollama.chat(
-            model="gemma3",
+            model="gemma3:1b",
             messages=[
                 {
                     "role": "user",

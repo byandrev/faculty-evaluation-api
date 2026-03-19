@@ -175,6 +175,7 @@ async def analyze_csv(
                         "sentiment": sentiment,
                         "hate": hate,
                         "danger": {"label": danger_label, "description": danger},
+                        "model_used": model,
                     }
                 )
 

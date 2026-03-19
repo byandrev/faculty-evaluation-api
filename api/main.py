@@ -13,7 +13,12 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from api.models.comment import Comment, CommentList
-from api.nlp import danger_analyzer, danger_analyzer_v2, hate_analyzer, sentiment_analyzer
+from api.nlp import (
+    danger_analyzer,
+    danger_analyzer_v2,
+    hate_analyzer,
+    sentiment_analyzer,
+)
 from api.settings import settings
 
 limiter = Limiter(key_func=get_remote_address)
@@ -43,6 +48,34 @@ def get_danger_analyzer(model: str):
     return danger_analyzer
 
 
+def map_danger_label(label: str, model: str) -> str:
+    """
+    Maps the danger label to a descriptive value based on the model used.
+
+    evd model:
+    - LABEL_0 = normal
+    - LABEL_1 = critico
+    - LABEL_2 = muy_critico
+
+    evd2 model:
+    - LABEL_0 = bueno
+    - LABEL_1 = normal
+    - LABEL_2 = critico
+    - LABEL_3 = muy_critico
+    """
+    if model == "evd":
+        mapping = {"LABEL_0": "normal", "LABEL_1": "critico", "LABEL_2": "muy_critico"}
+    else:  # evd2
+        mapping = {
+            "LABEL_0": "bueno",
+            "LABEL_1": "normal",
+            "LABEL_2": "critico",
+            "LABEL_3": "muy_critico",
+        }
+
+    return mapping.get(label, label)
+
+
 @app.get("/")
 @limiter.limit("60/minute")
 async def root(request: Request):
@@ -57,8 +90,12 @@ async def root(request: Request):
 async def analyze_comment(
     request: Request,
     comment: Comment,
-    model: str = Query(default="evd", regex="^(evd|evd2)$", description="Danger analysis model to use (evd or evd2)")
-    ):
+    model: str = Query(
+        default="evd",
+        regex="^(evd|evd2)$",
+        description="Danger analysis model to use (evd or evd2)",
+    ),
+):
     """
     Endpoint to analyse and store a comment.
     """
@@ -67,13 +104,14 @@ async def analyze_comment(
     hate = hate_analyzer.predict(comment.content)
 
     analyzer = get_danger_analyzer(model)
-    danger = analyzer.predict(comment.content)[0]
+    danger_label = analyzer.predict(comment.content)[0]
+    danger = map_danger_label(danger_label, model)
 
     return {
         "comment": comment.content,
         "sentiment": sentiment,
         "hate": hate,
-        "danger": danger,
+        "danger": {"label": danger_label, "description": danger},
         "model_used": model,
         "status": "Comment created successfully",
     }
@@ -84,7 +122,11 @@ async def analyze_comment(
 async def analyze_csv(
     request: Request,
     file: UploadFile = File(...),
-    model: str = Query(default="evd", regex="^(evd|evd2)$", description="Danger analysis model to use (evd or evd2)")
+    model: str = Query(
+        default="evd",
+        regex="^(evd|evd2)$",
+        description="Danger analysis model to use (evd or evd2)",
+    ),
 ):
     """
     Endpoint to analyze comments from a CSV file.
@@ -129,14 +171,15 @@ async def analyze_csv(
             if comment_text:
                 sentiment = sentiment_analyzer.predict(comment_text)
                 hate = hate_analyzer.predict(comment_text)
-                danger = analyzer.predict(comment_text)[0]
+                danger_label = analyzer.predict(comment_text)[0]
+                danger = map_danger_label(danger_label, model)
 
                 results.append(
                     {
                         "comment": comment_text,
                         "sentiment": sentiment,
                         "hate": hate,
-                        "danger": danger,
+                        "danger": {"label": danger_label, "description": danger},
                     }
                 )
 

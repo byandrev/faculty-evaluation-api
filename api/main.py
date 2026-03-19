@@ -6,14 +6,14 @@ import csv
 from io import StringIO
 
 import ollama
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from api.models.comment import Comment, CommentList
-from api.nlp import danger_analyzer, hate_analyzer, sentiment_analyzer
+from api.nlp import danger_analyzer, danger_analyzer_v2, hate_analyzer, sentiment_analyzer
 from api.settings import settings
 
 limiter = Limiter(key_func=get_remote_address)
@@ -32,6 +32,17 @@ app.add_middleware(
 )
 
 
+def get_danger_analyzer(model: str):
+    """
+    Returns the appropriate danger analyzer based on the model name.
+    """
+
+    if model == "evd2":
+        return danger_analyzer_v2
+
+    return danger_analyzer
+
+
 @app.get("/")
 @limiter.limit("60/minute")
 async def root(request: Request):
@@ -43,27 +54,38 @@ async def root(request: Request):
 
 @app.post("/comments/")
 @limiter.limit("30/minute")
-async def analyze_comment(request: Request, comment: Comment):
+async def analyze_comment(
+    request: Request,
+    comment: Comment,
+    model: str = Query(default="evd", regex="^(evd|evd2)$", description="Danger analysis model to use (evd or evd2)")
+    ):
     """
     Endpoint to analyse and store a comment.
     """
 
     sentiment = sentiment_analyzer.predict(comment.content)
     hate = hate_analyzer.predict(comment.content)
-    danger = danger_analyzer.predict(comment.content)[0]
+
+    analyzer = get_danger_analyzer(model)
+    danger = analyzer.predict(comment.content)[0]
 
     return {
         "comment": comment.content,
         "sentiment": sentiment,
         "hate": hate,
         "danger": danger,
+        "model_used": model,
         "status": "Comment created successfully",
     }
 
 
 @app.post("/upload/")
 @limiter.limit("10/minute")
-async def analyze_csv(request: Request, file: UploadFile = File(...)):
+async def analyze_csv(
+    request: Request,
+    file: UploadFile = File(...),
+    model: str = Query(default="evd", regex="^(evd|evd2)$", description="Danger analysis model to use (evd or evd2)")
+):
     """
     Endpoint to analyze comments from a CSV file.
     """
@@ -99,13 +121,15 @@ async def analyze_csv(request: Request, file: UploadFile = File(...)):
 
         results = []
 
+        analyzer = get_danger_analyzer(model)
+
         for row in reader:
             comment_text = row.get(comment_field, "").strip()
 
             if comment_text:
                 sentiment = sentiment_analyzer.predict(comment_text)
                 hate = hate_analyzer.predict(comment_text)
-                danger = danger_analyzer.predict(comment_text)[0]
+                danger = analyzer.predict(comment_text)[0]
 
                 results.append(
                     {
@@ -126,6 +150,7 @@ async def analyze_csv(request: Request, file: UploadFile = File(...)):
     return {
         "filename": file.filename,
         "results": results,
+        "model_used": model,
         "status": "CSV analyzed successfully",
     }
 

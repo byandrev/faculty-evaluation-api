@@ -100,7 +100,7 @@ async def analyze_comment(
 
     analyzer = get_danger_analyzer(model)
     danger_label = analyzer.predict(comment.content)[0]
-    danger = map_danger_label(danger_label, model)
+    danger = map_danger_label(danger_label["label"], model)
 
     return {
         "comment": comment.content,
@@ -167,7 +167,7 @@ async def analyze_csv(
                 sentiment = sentiment_analyzer.predict(comment_text)
                 hate = hate_analyzer.predict(comment_text)
                 danger_label = analyzer.predict(comment_text)[0]
-                danger = map_danger_label(danger_label, model)
+                danger = map_danger_label(danger_label["label"], model)
 
                 results.append(
                     {

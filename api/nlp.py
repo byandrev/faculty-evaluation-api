@@ -15,3 +15,7 @@ danger_analyzer = pipeline(
 danger_analyzer_v2 = pipeline(
     "text-classification", model="byandrev/evd2", tokenizer="byandrev/evd2"
 )
+
+danger_analyzer_v3 = pipeline(
+    "text-classification", model="byandrev/evd3", tokenizer="byandrev/evd3"
+)

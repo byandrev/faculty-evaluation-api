@@ -16,6 +16,7 @@ from api.models.comment import Comment, CommentList
 from api.nlp import (
     danger_analyzer,
     danger_analyzer_v2,
+    danger_analyzer_v3,
     hate_analyzer,
     sentiment_analyzer,
 )
@@ -44,6 +45,8 @@ def get_danger_analyzer(model: str):
 
     if model == "evd2":
         return danger_analyzer_v2
+    elif model == "evd3":
+        return danger_analyzer_v3
 
     return danger_analyzer
 
@@ -55,13 +58,15 @@ def map_danger_label(label: str, model: str) -> str:
 
     if model == "evd":
         mapping = {"LABEL_0": "normal", "LABEL_1": "critico", "LABEL_2": "muy_critico"}
-    else:  # evd2
+    elif model == "evd2":  # evd2
         mapping = {
             "LABEL_0": "bueno",
             "LABEL_1": "normal",
             "LABEL_2": "critico",
             "LABEL_3": "muy_critico",
         }
+    else:  # evd3
+        mapping = {"LABEL_0": "bajo", "LABEL_1": "medio", "LABEL_2": "alto"}
 
     return mapping.get(label)
 
@@ -82,8 +87,8 @@ async def analyze_comment(
     comment: Comment,
     model: str = Query(
         default="evd",
-        regex="^(evd|evd2)$",
-        description="Danger analysis model to use (evd or evd2)",
+        regex="^(evd|evd2|evd3)$",
+        description="Danger analysis model to use (evd, evd2 or evd3)",
     ),
 ):
     """
@@ -114,8 +119,8 @@ async def analyze_csv(
     file: UploadFile = File(...),
     model: str = Query(
         default="evd",
-        regex="^(evd|evd2)$",
-        description="Danger analysis model to use (evd or evd2)",
+        regex="^(evd|evd2|evd3)$",
+        description="Danger analysis model to use (evd, evd2 or evd3)",
     ),
 ):
     """

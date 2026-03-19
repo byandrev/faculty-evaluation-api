@@ -140,6 +140,35 @@ async def analyze_comment(
     }
 
 
+@app.post("/comments/compare-danger/")
+@limiter.limit("30/minute")
+async def compare_danger_models(request: Request, comment: Comment):
+    """
+    Endpoint to compare danger analysis across all available models.
+    """
+
+    metrics_start = start_metrics()
+    models = ["evd", "evd2", "evd3"]
+    comparisons = {}
+
+    for model_name in models:
+        analyzer = get_danger_analyzer(model_name)
+        danger_label = analyzer.predict(comment.content)[0]
+        danger = map_danger_label(danger_label["label"], model_name)
+
+        comparisons[model_name] = {
+            "label": danger_label,
+            "description": danger,
+        }
+
+    return {
+        "comment": comment.content,
+        "danger_comparison": comparisons,
+        "metrics": build_metrics(metrics_start),
+        "status": "Danger comparison generated successfully",
+    }
+
+
 @app.post("/upload/")
 @limiter.limit("10/minute")
 async def analyze_csv(

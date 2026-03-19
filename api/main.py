@@ -61,7 +61,7 @@ def map_danger_label(label: str, model: str) -> str:
     elif model == "evd2":  # evd2
         mapping = {
             "LABEL_0": "bueno",
-            "LABEL_1": "normal",
+            "LABEL_1": "bajo",
             "LABEL_2": "critico",
             "LABEL_3": "muy_critico",
         }

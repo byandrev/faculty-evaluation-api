@@ -1,0 +1,21 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: api-demo
+    ports:
+      - "8000:8000"
+    environment:
+      - SUMMARIZE_PROMPT=${SUMMARIZE_PROMPT}
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    restart: unless-stopped
+    networks:
+      - api-network
+
+networks:
+  api-network:
+    driver: bridge

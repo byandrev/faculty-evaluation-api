@@ -51,18 +51,8 @@ def get_danger_analyzer(model: str):
 def map_danger_label(label: str, model: str) -> str:
     """
     Maps the danger label to a descriptive value based on the model used.
-
-    evd model:
-    - LABEL_0 = normal
-    - LABEL_1 = critico
-    - LABEL_2 = muy_critico
-
-    evd2 model:
-    - LABEL_0 = bueno
-    - LABEL_1 = normal
-    - LABEL_2 = critico
-    - LABEL_3 = muy_critico
     """
+
     if model == "evd":
         mapping = {"LABEL_0": "normal", "LABEL_1": "critico", "LABEL_2": "muy_critico"}
     else:  # evd2
@@ -73,7 +63,7 @@ def map_danger_label(label: str, model: str) -> str:
             "LABEL_3": "muy_critico",
         }
 
-    return mapping.get(label, label)
+    return mapping.get(label)
 
 
 @app.get("/")

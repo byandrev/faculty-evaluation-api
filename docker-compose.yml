@@ -13,6 +13,14 @@ services:
     volumes:
       - .:/app
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 6G
+        reservations:
+          cpus: '1'
+          memory: 2G
     networks:
       - api-network
 

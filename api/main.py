@@ -3,6 +3,8 @@ Main API module defining the FastAPI application and its endpoints.
 """
 
 import csv
+import resource
+import time
 from io import StringIO
 
 import ollama
@@ -36,6 +38,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def start_metrics() -> dict:
+    return {
+        "wall_time": time.perf_counter(),
+        "cpu_time": time.process_time(),
+        "ram_kb": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
+    }
+
+
+def build_metrics(metrics_start: dict) -> dict:
+    wall_elapsed = time.perf_counter() - metrics_start["wall_time"]
+    cpu_elapsed = time.process_time() - metrics_start["cpu_time"]
+    ram_delta_kb = max(
+        resource.getrusage(resource.RUSAGE_SELF).ru_maxrss - metrics_start["ram_kb"],
+        0,
+    )
+
+    return {
+        "time_seconds": round(wall_elapsed, 6),
+        "cpu_seconds": round(cpu_elapsed, 6),
+        "ram_delta_mb": round(ram_delta_kb / 1024, 6),
+    }
 
 
 def get_danger_analyzer(model: str):
@@ -95,6 +120,8 @@ async def analyze_comment(
     Endpoint to analyse and store a comment.
     """
 
+    metrics_start = start_metrics()
+
     sentiment = sentiment_analyzer.predict(comment.content)
     hate = hate_analyzer.predict(comment.content)
 
@@ -108,6 +135,7 @@ async def analyze_comment(
         "hate": hate,
         "danger": {"label": danger_label, "description": danger},
         "model_used": model,
+        "metrics": build_metrics(metrics_start),
         "status": "Comment created successfully",
     }
 
@@ -126,6 +154,8 @@ async def analyze_csv(
     """
     Endpoint to analyze comments from a CSV file.
     """
+
+    metrics_start = start_metrics()
 
     if not file.filename.endswith(".csv"):
         raise HTTPException(
@@ -190,6 +220,7 @@ async def analyze_csv(
         "filename": file.filename,
         "results": results,
         "model_used": model,
+        "metrics": build_metrics(metrics_start),
         "status": "CSV analyzed successfully",
     }
 
